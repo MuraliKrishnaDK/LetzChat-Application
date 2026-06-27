@@ -83,6 +83,9 @@ export default function Login() {
             onChange={(e) => handleChange(e)}
           />
           <button type="submit">Log In</button>
+          <span className="reset-link">
+            <Link to="/reset-password">Reset password via email</Link>
+          </span>
           <span>
             Don't have an account ? <Link to="/register">Create One.</Link>
           </span>
@@ -174,6 +177,15 @@ const FormContainer = styled.div`
         background-color: #6b728028;
         color: #9ca3af;
       }
+    }
+  }
+
+  .reset-link {
+    text-transform: none;
+    font-size: 0.85rem;
+    a {
+      text-transform: none;
+      padding: 0.25rem 0.5rem;
     }
   }
 `;

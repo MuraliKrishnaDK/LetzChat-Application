@@ -1,0 +1,19 @@
+# Render Blueprint — single Web Service (Express API + React build + Socket.IO)
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: letzchat
+    runtime: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /ping
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URL
+        sync: false
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: SERVER_URL
+        sync: false

@@ -26,7 +26,9 @@ import StatusPage from "../components/StatusPage";
 import ProfilePanel from "../components/ProfilePanel";
 import ProfileView from "../components/ProfileView";
 import ChatsSettingsView from "../components/ChatsSettingsView";
+import CallOverlay from "../components/CallOverlay";
 import { ChatAppearanceProvider, useChatAppearance } from "../context/ChatAppearanceContext";
+import { useWebRTCCall } from "../hooks/useWebRTCCall";
 
 function BlankPane() {
   const { themeMode } = useChatAppearance();
@@ -60,6 +62,12 @@ function ChatContent() {
   const [blockedUserIds, setBlockedUserIds] = useState(() => new Set());
   const [chatRefreshNonce, setChatRefreshNonce] = useState(0);
   const [blockRefreshNonce, setBlockRefreshNonce] = useState(0);
+  /** DMs removed from sidebar after delete; cleared when user opens chat or new activity */
+  const [hiddenDmIds, setHiddenDmIds] = useState(() => new Set());
+
+  const call = useWebRTCCall(currentUser);
+  const callRef = useRef(call);
+  callRef.current = call;
 
   const currentChatRef = useRef(currentChat);
   useEffect(() => { currentChatRef.current = currentChat; }, [currentChat]);
@@ -73,11 +81,13 @@ function ChatContent() {
       members: gr.members,
       memberProfiles: gr.memberProfiles || [],
     }));
-    const uItems = contacts.map((c) => ({ ...c, isGroup: false }));
+    const uItems = contacts
+      .filter((c) => !hiddenDmIds.has(String(c._id)))
+      .map((c) => ({ ...c, isGroup: false }));
     return [...gItems, ...uItems].sort((a, b) =>
       a.username.localeCompare(b.username, undefined, { sensitivity: "base" })
     );
-  }, [groups, contacts]);
+  }, [groups, contacts, hiddenDmIds]);
 
   const sortedChatItems = useMemo(() => {
     const order = pinnedChatIds.map(String);
@@ -104,6 +114,86 @@ function ChatContent() {
       setPinnedChatIds([]);
     }
   }, [currentUser?._id]);
+
+  useEffect(() => {
+    if (!currentUser?._id) {
+      setHiddenDmIds(new Set());
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(`LetzChat_hiddenDm_${currentUser._id}`);
+      setHiddenDmIds(raw ? new Set(JSON.parse(raw)) : new Set());
+    } catch {
+      setHiddenDmIds(new Set());
+    }
+  }, [currentUser?._id]);
+
+  const removeHiddenDm = useCallback(
+    (userId) => {
+      const id = String(userId);
+      setHiddenDmIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        if (currentUser?._id) {
+          try {
+            localStorage.setItem(`LetzChat_hiddenDm_${currentUser._id}`, JSON.stringify([...next]));
+          } catch {
+            /* ignore */
+          }
+        }
+        return next;
+      });
+    },
+    [currentUser?._id]
+  );
+
+  /** After server deletes DM messages: hide row, clear previews, unpin */
+  const applyDmDeleteSideEffects = useCallback(
+    (partnerId) => {
+      const id = String(partnerId);
+      setHiddenDmIds((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        if (currentUser?._id) {
+          try {
+            localStorage.setItem(`LetzChat_hiddenDm_${currentUser._id}`, JSON.stringify([...next]));
+          } catch {
+            /* ignore */
+          }
+        }
+        return next;
+      });
+      setLastMessages((prev) => {
+        const n = { ...prev };
+        Object.keys(n).forEach((k) => {
+          if (String(k) === id) delete n[k];
+        });
+        return n;
+      });
+      setUnreadCounts((prev) => {
+        const n = { ...prev };
+        Object.keys(n).forEach((k) => {
+          if (String(k) === id) delete n[k];
+        });
+        return n;
+      });
+      setPinnedChatIds((prev) => {
+        const strs = prev.map(String);
+        if (!strs.includes(id)) return prev;
+        const next = strs.filter((x) => x !== id);
+        if (currentUser?._id) {
+          try {
+            localStorage.setItem(`LetzChat_pinned_${currentUser._id}`, JSON.stringify(next));
+          } catch {
+            /* ignore */
+          }
+        }
+        return next;
+      });
+    },
+    [currentUser?._id]
+  );
 
   useEffect(() => {
     if (!currentUser || contacts.length === 0) {
@@ -148,8 +238,10 @@ function ChatContent() {
     if (!currentUser) return;
     socket.current = io(host);
     socket.current.emit("add-user", currentUser._id);
+    callRef.current.attachSocket(socket.current);
 
     socket.current.on("msg-recieve", ({ msg, messageId, from }) => {
+      if (from) removeHiddenDm(from);
       const preview = { text: msg, fileType: "", fileName: "", fromSelf: false, deleted: false };
       setLastMessages((prev) => ({ ...prev, [from]: preview }));
 
@@ -166,6 +258,7 @@ function ChatContent() {
     });
 
     socket.current.on("file-msg-recieve", ({ fileUrl, fileType, fileName, messageId, from, message: caption }) => {
+      if (from) removeHiddenDm(from);
       const preview = { text: caption || "", fileType, fileName, fromSelf: false, deleted: false };
       setLastMessages((prev) => ({ ...prev, [from]: preview }));
 
@@ -219,7 +312,15 @@ function ChatContent() {
         setUnreadCounts((prev) => ({ ...prev, [groupId]: (prev[groupId] || 0) + 1 }));
       }
     });
-  }, [currentUser]);
+
+    return () => {
+      callRef.current.detachSocket();
+      if (socket.current) {
+        socket.current.disconnect();
+        socket.current = null;
+      }
+    };
+  }, [currentUser, removeHiddenDm]);
 
   useEffect(async () => {
     if (currentUser) {
@@ -270,7 +371,8 @@ function ChatContent() {
     setNewGroupName("");
     setGroupPanelRequestAddMembers(false);
     setGroupInfoPanelOpen(false);
-    const unread = unreadCounts[chat._id] || 0;
+    if (!chat.isGroup) removeHiddenDm(chat._id);
+    const unread = unreadCounts[chat._id] || unreadCounts[String(chat._id)] || 0;
     setCurrentChatUnread(unread);
     setUnreadCounts((prev) => ({ ...prev, [chat._id]: 0 }));
     setCurrentChat(chat);
@@ -368,6 +470,7 @@ function ChatContent() {
   };
 
   const handleMessageSent = (contactId, preview) => {
+    removeHiddenDm(contactId);
     setLastMessages((prev) => ({ ...prev, [contactId]: { ...preview, fromSelf: true, deleted: false } }));
   };
 
@@ -484,6 +587,7 @@ function ChatContent() {
     async (contact) => {
       if (!currentUser) return;
       const isGroup = contact.isGroup;
+      const partnerId = String(contact._id);
       const name = contact.username || "this chat";
       const msg = isGroup
         ? `Leave "${name}"? You will no longer receive group messages.`
@@ -494,31 +598,42 @@ function ChatContent() {
           await axios.post(leaveGroupRoute(contact._id), { userId: currentUser._id });
           setGroups((prev) => prev.filter((g) => g._id !== contact._id));
         } else {
-          await axios.post(deleteChatRoute, { from: currentUser._id, to: contact._id });
+          await axios.post(deleteChatRoute, {
+            from: String(currentUser._id),
+            to: partnerId,
+          });
+          applyDmDeleteSideEffects(partnerId);
         }
-        setLastMessages((prev) => {
-          const n = { ...prev };
-          delete n[contact._id];
-          return n;
-        });
-        setUnreadCounts((prev) => {
-          const n = { ...prev };
-          delete n[contact._id];
-          return n;
-        });
-        setPinnedChatIds((prev) => {
-          const id = String(contact._id);
-          const strs = prev.map(String);
-          if (!strs.includes(id)) return prev;
-          const next = strs.filter((x) => x !== id);
-          try {
-            localStorage.setItem(`LetzChat_pinned_${currentUser._id}`, JSON.stringify(next));
-          } catch {
-            /* ignore */
-          }
-          return next;
-        });
-        if (currentChatRef.current?._id === contact._id) {
+        if (isGroup) {
+          setLastMessages((prev) => {
+            const n = { ...prev };
+            delete n[partnerId];
+            Object.keys(n).forEach((k) => {
+              if (String(k) === partnerId) delete n[k];
+            });
+            return n;
+          });
+          setUnreadCounts((prev) => {
+            const n = { ...prev };
+            delete n[partnerId];
+            Object.keys(n).forEach((k) => {
+              if (String(k) === partnerId) delete n[k];
+            });
+            return n;
+          });
+          setPinnedChatIds((prev) => {
+            const strs = prev.map(String);
+            if (!strs.includes(partnerId)) return prev;
+            const next = strs.filter((x) => x !== partnerId);
+            try {
+              localStorage.setItem(`LetzChat_pinned_${currentUser._id}`, JSON.stringify(next));
+            } catch {
+              /* ignore */
+            }
+            return next;
+          });
+        }
+        if (String(currentChatRef.current?._id) === partnerId) {
           setCurrentChat(undefined);
           setChatRefreshNonce((n) => n + 1);
         }
@@ -526,7 +641,7 @@ function ChatContent() {
         alert(e.response?.data?.msg || "Could not complete action");
       }
     },
-    [currentUser]
+    [currentUser, applyDmDeleteSideEffects]
   );
 
   const showGroupPanel =
@@ -534,6 +649,21 @@ function ChatContent() {
 
   return (
     <>
+      <CallOverlay
+        callState={call.callState}
+        remoteUser={call.remoteUser}
+        localStream={call.localStream}
+        remoteStream={call.remoteStream}
+        isMuted={call.isMuted}
+        isVideoOff={call.isVideoOff}
+        isVideoCall={call.isVideoCall}
+        isLight={isLight}
+        onAccept={call.acceptCall}
+        onReject={call.rejectCall}
+        onEnd={call.endCall}
+        onToggleMute={call.toggleMute}
+        onToggleVideo={call.toggleVideo}
+      />
       <Container $light={isLight}>
         <div className={`container${showGroupPanel ? " with-group-panel" : ""}`}>
           <NavSidebar
@@ -605,7 +735,13 @@ function ChatContent() {
                       blockRefreshKey={blockRefreshNonce}
                       onMessageSent={(preview) => handleMessageSent(currentChat._id, preview)}
                       contacts={contacts}
-                      onDeleteChat={() => setCurrentChat(undefined)}
+                      onDeleteChat={() => {
+                        if (currentChat && !currentChat.isGroup) {
+                          applyDmDeleteSideEffects(currentChat._id);
+                        }
+                        setCurrentChat(undefined);
+                        setChatRefreshNonce((n) => n + 1);
+                      }}
                       onRequestAddMembers={() => {
                         setGroupInfoPanelOpen(true);
                         setGroupPanelRequestAddMembers(true);
@@ -614,6 +750,9 @@ function ChatContent() {
                         currentChat.isGroup ? () => setGroupInfoPanelOpen((v) => !v) : undefined
                       }
                       onBlockStatusChange={handleBlockStatusChange}
+                      onStartVoiceCall={call.startVoiceCall}
+                      onStartVideoCall={call.startVideoCall}
+                      callDisabled={call.inCall}
                     />
                   </ChatPane>
                   {showGroupPanel && currentUser && (

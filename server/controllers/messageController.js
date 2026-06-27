@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Messages = require("../models/messageModel");
 const Block = require("../models/blockModel");
 const Group = require("../models/groupModel");
@@ -99,7 +100,7 @@ module.exports.addFileMessage = async (req, res, next) => {
     const file = req.file;
     if (!file) return res.status(400).json({ msg: "No file uploaded" });
 
-    const serverUrl = process.env.SERVER_URL || "http://localhost:5001";
+    const serverUrl = process.env.SERVER_URL || "http://localhost:5002";
     const fileUrl = `${serverUrl}/uploads/${file.filename}`;
     const fileType = file.mimetype.startsWith("image/")
       ? "image"
@@ -288,9 +289,31 @@ module.exports.clearChat = async (req, res, next) => {
 module.exports.deleteChat = async (req, res, next) => {
   try {
     const { from, to } = req.body;
-    await Messages.deleteMany({ users: { $all: [from, to] }, groupId: null });
-    return res.json({ msg: "Chat deleted." });
-  } catch (ex) { next(ex); }
+    if (!from || !to) return res.status(400).json({ msg: "Missing fields" });
+    const a = String(from);
+    const b = String(to);
+    if (a === b) return res.status(400).json({ msg: "Invalid participants" });
+
+    const dmScope = {
+      $or: [{ groupId: null }, { groupId: { $exists: false } }],
+    };
+
+    const variants = [{ users: { $all: [a, b] } }];
+    if (mongoose.Types.ObjectId.isValid(a) && mongoose.Types.ObjectId.isValid(b)) {
+      variants.push({
+        users: {
+          $all: [new mongoose.Types.ObjectId(a), new mongoose.Types.ObjectId(b)],
+        },
+      });
+    }
+
+    const result = await Messages.deleteMany({
+      $and: [dmScope, { $or: variants }],
+    });
+    return res.json({ msg: "Chat deleted.", deletedCount: result.deletedCount });
+  } catch (ex) {
+    next(ex);
+  }
 };
 
 // Toggle block: returns { blocked: true/false }

@@ -7,13 +7,23 @@ import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from "react-router-dom";
 import { setAvatarRoute } from "../utils/APIRoutes";
 import { createAvatar } from "@dicebear/core";
-import { adventurer, lorelei, micah, notionists } from "@dicebear/collection";
+import { personas } from "@dicebear/collection";
 
-/** Four distinct DiceBear styles (not Multiavatar) for variety in the picker row */
-const AVATAR_STYLES = [adventurer, lorelei, micah, notionists];
+/** Personas collection — illustrated characters; each row in the table is a slice of generated seeds */
+const AVATAR_STYLE = personas;
+const AVATAR_COUNT = 20;
+const TABLE_COLUMNS = 5;
 
 function svgToBase64(svg) {
   return btoa(unescape(encodeURIComponent(svg)));
+}
+
+function chunkArray(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) {
+    out.push(arr.slice(i, i + size));
+  }
+  return out;
 }
 
 export default function SetAvatar() {
@@ -40,9 +50,10 @@ export default function SetAvatar() {
   useEffect(() => {
     const generateAvatars = () => {
       const data = [];
-      for (let i = 0; i < 4; i++) {
-        const seed = `${generateRandomName()}-${Date.now()}-${i}`;
-        const svg = createAvatar(AVATAR_STYLES[i], {
+      const base = Date.now();
+      for (let i = 0; i < AVATAR_COUNT; i++) {
+        const seed = `${generateRandomName()}-${base}-${i}`;
+        const svg = createAvatar(AVATAR_STYLE, {
           seed,
           size: 128,
         }).toString();
@@ -82,6 +93,8 @@ export default function SetAvatar() {
     }
   };
 
+  const rows = chunkArray(avatars, TABLE_COLUMNS);
+
   return (
     <>
       {isLoading ? (
@@ -91,24 +104,48 @@ export default function SetAvatar() {
       ) : (
         <Container>
           <div className="title-container">
-            <h1>Pick an Avatar as your profile picture</h1>
+            <h1>Pick your profile picture</h1>
+            <p className="subtitle">
+              Personas collection — select a cell in the table below
+            </p>
           </div>
-          <div className="avatars">
-            {avatars.map((avatar, index) => (
-              <div
-                key={index}
-                className={`avatar ${
-                  selectedAvatar === index ? "selected" : ""
-                }`}
-                onClick={() => setSelectedAvatar(index)}
-              >
-                <img
-                  src={`data:image/svg+xml;base64,${avatar}`}
-                  alt={`avatar-${index}`}
-                />
-              </div>
-            ))}
+
+          <div className="avatar-table-wrap">
+            <table className="avatar-table">
+              <caption className="table-caption">
+                Avatar options (Personas). Each row has {TABLE_COLUMNS}{" "}
+                choices.
+              </caption>
+              <tbody>
+                {rows.map((row, rowIndex) => (
+                  <tr key={rowIndex}>
+                    {row.map((avatar, colIndex) => {
+                      const index = rowIndex * TABLE_COLUMNS + colIndex;
+                      return (
+                        <td key={index}>
+                          <button
+                            type="button"
+                            className={`avatar-cell ${
+                              selectedAvatar === index ? "selected" : ""
+                            }`}
+                            onClick={() => setSelectedAvatar(index)}
+                            aria-pressed={selectedAvatar === index}
+                            aria-label={`Select Personas avatar ${index + 1}`}
+                          >
+                            <img
+                              src={`data:image/svg+xml;base64,${avatar}`}
+                              alt=""
+                            />
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+
           <button onClick={setProfilePicture} className="submit-btn">
             Set as Profile Picture
           </button>
@@ -124,51 +161,120 @@ const Container = styled.div`
   justify-content: center;
   align-items: center;
   flex-direction: column;
-  gap: 3rem;
+  gap: 1.75rem;
   background-color: #171717;
-  height: 100vh;
+  min-height: 100vh;
   width: 100vw;
+  padding: 1.5rem 0 2rem;
+  box-sizing: border-box;
 
   .loader {
     max-inline-size: 100%;
   }
 
   .title-container {
+    text-align: center;
+    flex-shrink: 0;
+
     h1 {
       color: white;
+      margin: 0 0 0.5rem;
+      font-size: clamp(1.25rem, 4vw, 1.75rem);
+    }
+
+    .subtitle {
+      color: #a3a3a3;
+      margin: 0;
+      font-size: 0.95rem;
     }
   }
 
-  .avatars {
-    display: flex;
-    gap: 2rem;
+  .avatar-table-wrap {
+    width: 100%;
+    max-width: min(36rem, calc(100vw - 2rem));
+    max-height: min(60vh, 28rem);
+    overflow: auto;
+    border-radius: 0.5rem;
+    border: 1px solid #404040;
+    background: #1f1f1f;
+    box-sizing: border-box;
+  }
 
-    .avatar {
-      border: 0.4rem solid transparent;
-      padding: 0.4rem;
-      border-radius: 5rem;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      transition: 0.5s ease-in-out;
+  .avatar-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
 
-      img {
-        height: 6rem;
-        transition: 0.5s ease-in-out;
-      }
+    .table-caption {
+      caption-side: top;
+      padding: 0.65rem 0.75rem;
+      font-size: 0.8rem;
+      color: #a3a3a3;
+      text-align: left;
+      border-bottom: 1px solid #404040;
+    }
 
-      &:hover {
-        cursor: pointer;
-        transform: scale(1.1);
+    tbody tr {
+      border-bottom: 1px solid #333;
+
+      &:last-child {
+        border-bottom: none;
       }
     }
 
-    .selected {
-      border: 0.4rem solid #6b7280;
+    td {
+      padding: 0.5rem;
+      text-align: center;
+      vertical-align: middle;
+      border-right: 1px solid #333;
+
+      &:last-child {
+        border-right: none;
+      }
+    }
+  }
+
+  .avatar-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 5.25rem;
+    margin: 0 auto;
+    padding: 0.35rem;
+    border: 0.3rem solid transparent;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease,
+      transform 0.2s ease;
+    aspect-ratio: 1;
+
+    img {
+      width: 100%;
+      height: 100%;
+      max-height: 4.5rem;
+      object-fit: contain;
+      pointer-events: none;
+    }
+
+    &:hover {
+      transform: scale(1.05);
+    }
+
+    &:focus-visible {
+      outline: 2px solid #d4d4d4;
+      outline-offset: 2px;
+    }
+
+    &.selected {
+      border-color: #9ca3af;
+      box-shadow: 0 0 0 1px rgba(156, 163, 175, 0.45);
     }
   }
 
   .submit-btn {
+    flex-shrink: 0;
     background-color: #6b7280;
     color: white;
     padding: 1rem 2rem;

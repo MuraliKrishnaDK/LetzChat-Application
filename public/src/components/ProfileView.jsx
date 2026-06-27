@@ -2,9 +2,31 @@ import React, { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { updateProfileRoute } from "../utils/APIRoutes";
-import { MdCheck, MdClose, MdPhone, MdPerson, MdEdit } from "react-icons/md";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { deleteAccountRoute, logoutRoute, updateProfileRoute } from "../utils/APIRoutes";
+import { MdCheck, MdClose, MdPhone, MdPerson, MdEdit, MdDeleteForever } from "react-icons/md";
 import { useChatAppearance } from "../context/ChatAppearanceContext";
+
+const toastOptions = {
+  position: "bottom-right",
+  autoClose: 8000,
+  pauseOnHover: true,
+  draggable: true,
+  theme: "dark",
+};
+
+function clearUserSession() {
+  const authKey = process.env.REACT_APP_LOCALHOST_KEY;
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && (key === authKey || key.startsWith("LetzChat_"))) {
+      keys.push(key);
+    }
+  }
+  keys.forEach((key) => localStorage.removeItem(key));
+}
 
 function EditableField({ icon, label, value, placeholder, type = "text", maxLength, onSave, $light }) {
   const [active, setActive] = useState(false);
@@ -86,6 +108,8 @@ export default function ProfileView() {
   const { themeMode } = useChatAppearance();
   const isLight = themeMode === "light";
   const [user, setUser] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -103,6 +127,31 @@ export default function ProfileView() {
       return null; // no error
     } catch {
       return "Network error. Try again.";
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      const { data } = await axios.delete(deleteAccountRoute(user._id));
+      if (!data.status) {
+        toast.error(data.msg || "Could not delete account.", toastOptions);
+        setDeleting(false);
+        return;
+      }
+
+      try {
+        await axios.get(logoutRoute(user._id));
+      } catch {
+        /* session may already be invalid after delete */
+      }
+
+      clearUserSession();
+      setShowDeleteConfirm(false);
+      navigate("/login", { replace: true });
+    } catch {
+      toast.error("Network error. Try again.", toastOptions);
+      setDeleting(false);
     }
   };
 
@@ -153,7 +202,49 @@ export default function ProfileView() {
           maxLength={15}
           onSave={(val) => saveField({ phone: val })}
         />
+
+        <div className="danger-zone">
+          <button
+            type="button"
+            className="delete-account-btn"
+            onClick={() => setShowDeleteConfirm(true)}
+          >
+            <MdDeleteForever />
+            Delete account
+          </button>
+        </div>
       </div>
+
+      {showDeleteConfirm && (
+        <ConfirmOverlay onClick={() => !deleting && setShowDeleteConfirm(false)}>
+          <ConfirmDialog $light={isLight} onClick={(e) => e.stopPropagation()}>
+            <h2>Delete account?</h2>
+            <p>
+              This permanently removes your profile, messages, and chat history.
+              This action cannot be undone.
+            </p>
+            <div className="confirm-actions">
+              <button
+                type="button"
+                className="cancel-btn"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="confirm-btn"
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting…" : "Yes, delete my account"}
+              </button>
+            </div>
+          </ConfirmDialog>
+        </ConfirmOverlay>
+      )}
+      <ToastContainer />
     </Container>
   );
 }
@@ -346,5 +437,100 @@ const Container = styled.div`
     height: 1px;
     background: ${(p) => (p.$light ? "#e5e7eb" : "#ffffff08")};
     margin: 0 1.4rem;
+  }
+
+  .danger-zone {
+    padding: 1.4rem;
+    border-top: 1px solid ${(p) => (p.$light ? "#e5e7eb" : "#ffffff08")};
+  }
+
+  .delete-account-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.85rem 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid #ff6b6b44;
+    background: #ff4d4d12;
+    color: #ff6b6b;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+
+    &:hover {
+      background: #ff4d4d22;
+      border-color: #ff6b6b;
+    }
+  }
+`;
+
+const ConfirmOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  padding: 1rem;
+`;
+
+const ConfirmDialog = styled.div`
+  width: 100%;
+  max-width: 22rem;
+  background: ${(p) => (p.$light ? "#ffffff" : "#1f1f23")};
+  border: 1px solid ${(p) => (p.$light ? "#d1d5db" : "#ffffff12")};
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+
+  h2 {
+    margin: 0 0 0.75rem;
+    color: ${(p) => (p.$light ? "#18181b" : "#f4f4f5")};
+    font-size: 1.1rem;
+  }
+
+  p {
+    margin: 0 0 1.25rem;
+    color: ${(p) => (p.$light ? "#52525b" : "#a1a1aa")};
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .confirm-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+  }
+
+  button {
+    border: none;
+    border-radius: 9999px;
+    padding: 0.65rem 1.1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  .cancel-btn {
+    background: ${(p) => (p.$light ? "#f3f4f6" : "#ffffff12")};
+    color: ${(p) => (p.$light ? "#18181b" : "#d4d4d8")};
+  }
+
+  .confirm-btn {
+    background: #dc2626;
+    color: white;
+    &:hover:not(:disabled) {
+      background: #b91c1c;
+    }
   }
 `;

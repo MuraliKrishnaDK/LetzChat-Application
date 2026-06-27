@@ -11,7 +11,7 @@ import {
   clearChatRoute, deleteChatRoute, blockUserRoute, checkBlockRoute,
 } from "../utils/APIRoutes";
 import { AiOutlineFile } from "react-icons/ai";
-import { BsMicFill, BsThreeDotsVertical, BsCheckSquare } from "react-icons/bs";
+import { BsMicFill, BsThreeDotsVertical, BsCheckSquare, BsTelephoneFill, BsCameraVideoFill } from "react-icons/bs";
 import { MdEdit, MdDelete, MdPushPin, MdOutlineBlock, MdOutlineDeleteSweep, MdDeleteForever, MdGroups, MdPersonAdd } from "react-icons/md";
 import { IoSearchOutline, IoCloseCircle, IoClose, IoChevronDown } from "react-icons/io5";
 import { FaReply, FaCopy, FaSmile, FaShare } from "react-icons/fa";
@@ -27,6 +27,9 @@ export default function ChatContainer({
   chatRefreshKey = 0,
   blockRefreshKey = 0,
   onBlockStatusChange,
+  onStartVoiceCall,
+  onStartVideoCall,
+  callDisabled = false,
 }) {
   const [messages, setMessages] = useState([]);
   const scrollRef = useRef();
@@ -497,7 +500,10 @@ export default function ChatContainer({
   const handleDeleteChat = async () => {
     setShowKebab(false);
     if (!window.confirm(`Delete chat with ${currentChat.username}? All messages will be permanently removed.`)) return;
-    await axios.post(deleteChatRoute, { from: currentUser.current._id, to: currentChat._id });
+    await axios.post(deleteChatRoute, {
+      from: String(currentUser.current._id),
+      to: String(currentChat._id),
+    });
     if (onDeleteChat) onDeleteChat();
   };
 
@@ -671,6 +677,29 @@ export default function ChatContainer({
           {searchQuery && <IoCloseCircle className="clear-icon" onClick={() => setSearchQuery("")} />}
           {searchQuery && <span className="match-count">{filteredMessages.length} result{filteredMessages.length !== 1 ? "s" : ""}</span>}
         </div>
+
+        {!currentChat.isGroup && onStartVoiceCall && onStartVideoCall && (
+          <div className="call-actions">
+            <button
+              type="button"
+              className="call-btn"
+              title="Voice call"
+              disabled={callDisabled || isBlocked}
+              onClick={() => onStartVoiceCall(currentChat)}
+            >
+              <BsTelephoneFill />
+            </button>
+            <button
+              type="button"
+              className="call-btn"
+              title="Video call"
+              disabled={callDisabled || isBlocked}
+              onClick={() => onStartVideoCall(currentChat)}
+            >
+              <BsCameraVideoFill />
+            </button>
+          </div>
+        )}
 
         {/* Three-dot kebab */}
         <div className="kebab-wrap" ref={kebabRef}>
@@ -987,6 +1016,28 @@ const Container = styled.div`
       input { flex: 1; background: transparent; border: none; outline: none; color: ${(p) => (p.$light ? "#18181b" : "white")}; font-size: 0.85rem; min-width: 0; &::placeholder { color: ${(p) => (p.$light ? "#6b7280" : "#ffffff55")}; } }
       .clear-icon { color: ${(p) => (p.$light ? "#6b7280" : "#ffffff55")}; font-size: 1rem; cursor: pointer; &:hover { color: #ff4d4d; } }
       .match-count { font-size: 0.72rem; color: #6b7280; white-space: nowrap; }
+    }
+
+    .call-actions {
+      display: flex;
+      gap: 0.35rem;
+      flex-shrink: 0;
+    }
+    .call-btn {
+      background: transparent;
+      border: none;
+      color: ${(p) => (p.$light ? "#4b5563" : "#ffffff88")};
+      font-size: 1.05rem;
+      width: 2.2rem;
+      height: 2.2rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      &:hover:not(:disabled) { background: ${(p) => (p.$light ? "#00000012" : "#ffffff15")}; color: ${(p) => (p.$light ? "#18181b" : "white")}; }
+      &:disabled { opacity: 0.35; cursor: not-allowed; }
     }
 
     .kebab-wrap {
