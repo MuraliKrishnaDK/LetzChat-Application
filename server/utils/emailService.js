@@ -1,7 +1,57 @@
 const https = require("https");
 const nodemailer = require("nodemailer");
 
-// ── Resend (HTTPS API — works on Render and any platform) ────────────────────
+// ── Brevo (formerly Sendinblue) — HTTPS API, no domain verification needed ───
+
+function getBrevoConfig() {
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) return null;
+  const fromEmail = process.env.BREVO_FROM_EMAIL;
+  if (!fromEmail) return null;
+  return { apiKey, fromEmail, fromName: process.env.BREVO_FROM_NAME || "LetzChat" };
+}
+
+function sendViaBrevo(cfg, to, subject, html, text) {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify({
+      sender: { name: cfg.fromName, email: cfg.fromEmail },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+      textContent: text,
+    });
+
+    const req = https.request(
+      {
+        hostname: "api.brevo.com",
+        port: 443,
+        path: "/v3/smtp/email",
+        method: "POST",
+        headers: {
+          "api-key": cfg.apiKey,
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload),
+        },
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (c) => (data += c));
+        res.on("end", () => {
+          if (res.statusCode === 200 || res.statusCode === 201) {
+            resolve({ sent: true });
+          } else {
+            reject(new Error(`Brevo API ${res.statusCode}: ${data}`));
+          }
+        });
+      }
+    );
+    req.on("error", reject);
+    req.write(payload);
+    req.end();
+  });
+}
+
+// ── Resend — HTTPS API (requires verified domain to send to others) ───────────
 
 function getResendConfig() {
   const apiKey = process.env.RESEND_API_KEY;
@@ -52,7 +102,7 @@ function sendViaResend(cfg, to, subject, html, text) {
   });
 }
 
-// ── Nodemailer SMTP (local development fallback) ─────────────────────────────
+// ── Nodemailer SMTP (local development only — Render blocks port 587/465) ─────
 
 function getSmtpConfig() {
   const user = process.env.SMTP_USER || process.env.GMAIL_USER;
@@ -92,7 +142,16 @@ async function sendResetCodeEmail(to, code) {
 
   const isProduction = process.env.NODE_ENV === "production";
 
-  // 1. Try Resend (works on Render / any cloud host — HTTPS, never blocked)
+  // 1. Brevo — no domain verification needed, free 300 emails/day
+  const brevo = getBrevoConfig();
+  if (brevo) {
+    console.log(`[LetzChat] Sending reset email via Brevo to ${to}`);
+    const result = await sendViaBrevo(brevo, to, subject, html, text);
+    console.log(`[LetzChat] Brevo: email sent to ${to}`);
+    return result;
+  }
+
+  // 2. Resend — works if you have a verified domain
   const resend = getResendConfig();
   if (resend) {
     console.log(`[LetzChat] Sending reset email via Resend to ${to}`);
@@ -101,7 +160,7 @@ async function sendResetCodeEmail(to, code) {
     return result;
   }
 
-  // 2. Try SMTP only in local development (Render blocks port 587/465 on free tier)
+  // 3. SMTP — local development only (Render blocks port 587/465)
   if (!isProduction) {
     const smtp = getSmtpConfig();
     if (smtp) {
@@ -112,14 +171,14 @@ async function sendResetCodeEmail(to, code) {
     }
   }
 
-  // 3. Nothing configured
+  // 4. Nothing configured
   if (isProduction) {
     throw new Error(
-      "RESEND_API_KEY is not set. Add it to your Render environment variables."
+      "No email provider configured. Set BREVO_API_KEY + BREVO_FROM_EMAIL in Render environment variables."
     );
   }
   console.log(`[LetzChat] No email provider configured. Reset code for ${to}: ${code}`);
   return { sent: false, reason: "not_configured" };
 }
 
-module.exports = { sendResetCodeEmail, getSmtpConfig, getResendConfig };
+module.exports = { sendResetCodeEmail, getSmtpConfig, getResendConfig, getBrevoConfig };
