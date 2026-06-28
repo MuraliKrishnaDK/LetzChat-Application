@@ -17,15 +17,7 @@ const toastOptions = {
 };
 
 function clearUserSession() {
-  const authKey = process.env.REACT_APP_LOCALHOST_KEY;
-  const keys = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && (key === authKey || key.startsWith("LetzChat_"))) {
-      keys.push(key);
-    }
-  }
-  keys.forEach((key) => localStorage.removeItem(key));
+  localStorage.clear();
 }
 
 function EditableField({ icon, label, value, placeholder, type = "text", maxLength, onSave, $light }) {
@@ -154,11 +146,11 @@ export default function ProfileView() {
         autoClose: 1000,
       });
 
-      // Use a hard redirect after 1 s so it works even if the component
-      // unmounts (navigate() can silently fail on an unmounted tree).
+      // Hard redirect — works even after the component unmounts.
+      // Short delay lets the toast render before the page unloads.
       setTimeout(() => {
         window.location.replace("/login");
-      }, 1100);
+      }, 800);
     } catch {
       toast.error("Network error. Try again.", toastOptions);
       setDeleting(false);
