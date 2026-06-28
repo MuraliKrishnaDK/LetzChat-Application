@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import styled from "styled-components";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { loginRoute } from "../utils/APIRoutes";
@@ -9,6 +9,7 @@ import { brandLogoUrl } from "../brand";
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [values, setValues] = useState({ username: "", password: "" });
   const toastOptions = {
     position: "bottom-right",
@@ -20,7 +21,16 @@ export default function Login() {
   useEffect(() => {
     if (localStorage.getItem(process.env.REACT_APP_LOCALHOST_KEY)) {
       navigate("/");
+      return;
     }
+    // Show confirmation toast when redirected here after account deletion
+    if (new URLSearchParams(location.search).get("deleted") === "1") {
+      toast.success("Your account has been deleted successfully.", {
+        ...toastOptions,
+        autoClose: 3000,
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleChange = (event) => {

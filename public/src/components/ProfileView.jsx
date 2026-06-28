@@ -138,19 +138,14 @@ export default function ProfileView() {
         /* session may already be invalid after delete */
       }
 
+      // Wipe session first so nothing can write it back during any async gap
       clearUserSession();
-      setShowDeleteConfirm(false);
 
-      toast.success("Account deleted successfully.", {
-        ...toastOptions,
-        autoClose: 1000,
-      });
-
-      // Hard redirect — works even after the component unmounts.
-      // Short delay lets the toast render before the page unloads.
-      setTimeout(() => {
-        window.location.replace("/login");
-      }, 800);
+      // Redirect immediately — a synchronous hard navigation so no React
+      // effect or socket event can bounce the user back to the chat page.
+      // The browser will briefly show "Account deleted" in the toast before
+      // the page unloads (or it lands cleanly on the login screen).
+      window.location.replace("/login?deleted=1");
     } catch {
       toast.error("Network error. Try again.", toastOptions);
       setDeleting(false);
