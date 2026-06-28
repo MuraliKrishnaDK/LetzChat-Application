@@ -745,7 +745,9 @@ function ChatContent() {
 
   // ── Resizable panel divider ──────────────────────────────────────────────
   const MIN_LEFT = 220;
-  const MAX_LEFT = 480;
+  const MIN_CHAT = 320; // chat section must keep at least this many px
+  const NAV_W = 65;
+  const HANDLE_W = 6;
   const [leftWidth, setLeftWidth] = useState(280);
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
@@ -764,7 +766,9 @@ function ChatContent() {
     const onMove = (e) => {
       if (!isDragging.current) return;
       const delta = e.clientX - dragStartX.current;
-      const next = Math.min(MAX_LEFT, Math.max(MIN_LEFT, dragStartWidth.current + delta));
+      // Dynamic ceiling: never let the chat pane shrink below MIN_CHAT px
+      const maxLeft = Math.max(MIN_LEFT, window.innerWidth - NAV_W - HANDLE_W - MIN_CHAT);
+      const next = Math.min(maxLeft, Math.max(MIN_LEFT, dragStartWidth.current + delta));
       setLeftWidth(next);
     };
     const onUp = () => {
@@ -803,9 +807,9 @@ function ChatContent() {
         <div
           className={`container${showGroupPanel ? " with-group-panel" : ""}`}
           style={{
-            gridTemplateColumns: showGroupPanel
-              ? `65px ${leftWidth}px 6px auto 280px`
-              : `65px ${leftWidth}px 6px auto`,
+                    gridTemplateColumns: showGroupPanel
+                      ? `65px ${leftWidth}px 6px minmax(${MIN_CHAT}px, 1fr) 280px`
+                      : `65px ${leftWidth}px 6px minmax(${MIN_CHAT}px, 1fr)`,
           }}
         >
           {/* ── Col 1: Nav ── */}
