@@ -379,6 +379,24 @@ function ChatContent() {
       }
     });
 
+    socket.current.on("user-deleted", ({ userId }) => {
+      const deletedPatch = {
+        deleted: true,
+        username: "Deleted User",
+        avatarImage: "",
+        email: "",
+        phone: "",
+      };
+      setContacts((prev) =>
+        prev.map((c) => String(c._id) === String(userId) ? { ...c, ...deletedPatch } : c)
+      );
+      setCurrentChat((prev) =>
+        prev && !prev.isGroup && String(prev._id) === String(userId)
+          ? { ...prev, ...deletedPatch }
+          : prev
+      );
+    });
+
     return () => {
       callRef.current.detachSocket();
       if (socket.current) {

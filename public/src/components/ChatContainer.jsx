@@ -12,7 +12,7 @@ import {
 } from "../utils/APIRoutes";
 import { AiOutlineFile } from "react-icons/ai";
 import { BsMicFill, BsThreeDotsVertical, BsCheckSquare, BsTelephoneFill, BsCameraVideoFill } from "react-icons/bs";
-import { MdEdit, MdDelete, MdPushPin, MdOutlineBlock, MdOutlineDeleteSweep, MdDeleteForever, MdGroups, MdPersonAdd } from "react-icons/md";
+import { MdEdit, MdDelete, MdPushPin, MdOutlineBlock, MdOutlineDeleteSweep, MdDeleteForever, MdGroups, MdPersonAdd, MdNoAccounts } from "react-icons/md";
 import { IoSearchOutline, IoCloseCircle, IoClose, IoChevronDown } from "react-icons/io5";
 import { FaReply, FaCopy, FaSmile, FaShare } from "react-icons/fa";
 
@@ -651,6 +651,10 @@ export default function ChatContainer({
                   <MdGroups />
                 </span>
               )
+            ) : currentChat.deleted ? (
+              <span className="deleted-user-header-avatar" aria-label="Deleted user">
+                <MdNoAccounts />
+              </span>
             ) : (
               <img src={`data:image/svg+xml;base64,${currentChat.avatarImage}`} alt="" />
             )}
@@ -840,9 +844,14 @@ export default function ChatContainer({
         </div>
       )}
 
-      {/* Input / blocked state */}
+      {/* Input / blocked / deleted state */}
       {!selectMode && (
-        isBlocked ? (
+        currentChat.deleted ? (
+          <div className="deleted-bar">
+            <MdNoAccounts />
+            <span>This user has deleted their account.</span>
+          </div>
+        ) : isBlocked ? (
           <div className="blocked-bar">
             <MdOutlineBlock />
             <span>You blocked {currentChat.username}.</span>
@@ -1106,6 +1115,31 @@ const Container = styled.div`
   }
 
   /* Blocked bar */
+  .deleted-bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 0.9rem 1.5rem;
+    background: ${(p) => (p.$light ? "#e5e7eb" : "#232326")};
+    border-top: 1px solid #6b728033;
+    svg { color: ${(p) => (p.$light ? "#9ca3af" : "#6b7280")}; font-size: 1.2rem; }
+    span { color: ${(p) => (p.$light ? "#6b7280" : "#9ca3af")}; font-size: 0.88rem; font-style: italic; }
+  }
+
+  .deleted-user-header-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 50%;
+    background: ${(p) => (p.$light ? "#d1d5db" : "#374151")};
+    color: ${(p) => (p.$light ? "#9ca3af" : "#6b7280")};
+    font-size: 1.4rem;
+  }
+
   .blocked-bar {
     flex-shrink: 0;
     display: flex;

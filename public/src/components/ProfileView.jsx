@@ -148,7 +148,13 @@ export default function ProfileView() {
 
       clearUserSession();
       setShowDeleteConfirm(false);
-      navigate("/login", { replace: true });
+
+      toast.success("Account deleted successfully.", {
+        ...toastOptions,
+        autoClose: 1000,
+      });
+
+      setTimeout(() => navigate("/login", { replace: true }), 1200);
     } catch {
       toast.error("Network error. Try again.", toastOptions);
       setDeleting(false);

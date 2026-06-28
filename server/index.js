@@ -80,6 +80,7 @@ const io = socket(server, {
 });
 
 global.onlineUsers = new Map();
+global.io = io;
 const activeCalls = new Map();
 
 const getUserSocket = (userId) => onlineUsers.get(String(userId));

@@ -5,7 +5,7 @@ import { searchMessagesRoute } from "../utils/APIRoutes";
 import { IoSearchOutline, IoCloseCircle } from "react-icons/io5";
 import { AiOutlineFile, AiOutlineFileImage, AiOutlineVideoCamera } from "react-icons/ai";
 import { BsMicFill, BsThreeDotsVertical, BsCheckSquare } from "react-icons/bs";
-import { MdGroups, MdPushPin, MdOutlineBlock, MdOutlineDeleteSweep, MdDeleteForever } from "react-icons/md";
+import { MdGroups, MdPushPin, MdOutlineBlock, MdOutlineDeleteSweep, MdDeleteForever, MdNoAccounts } from "react-icons/md";
 import { useChatAppearance } from "../context/ChatAppearanceContext";
 import { brandLogoUrl } from "../brand";
 
@@ -328,6 +328,10 @@ export default function Contacts({
                             <MdGroups />
                           </span>
                         )
+                      ) : contact.deleted ? (
+                        <span className="deleted-user-avatar" aria-label="Deleted user">
+                          <MdNoAccounts />
+                        </span>
                       ) : (
                         <img
                           src={`data:image/svg+xml;base64,${contact.avatarImage}`}
@@ -336,7 +340,7 @@ export default function Contacts({
                       )}
                     </div>
                     <div className="username">
-                      <h3>{contact.username}</h3>
+                      <h3 className={contact.deleted ? "deleted-username" : ""}>{contact.username}</h3>
                       <MessagePreview preview={lastMessages[contact._id]} />
                     </div>
                     {!pickerMode && (
@@ -757,6 +761,24 @@ const Container = styled.div`
           color: white;
           font-size: 1.35rem;
           flex-shrink: 0;
+        }
+
+        .deleted-user-avatar {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 3rem;
+          height: 3rem;
+          border-radius: 50%;
+          background: ${(p) => p.$light ? "#d1d5db" : "#374151"};
+          color: ${(p) => p.$light ? "#9ca3af" : "#6b7280"};
+          font-size: 1.5rem;
+          flex-shrink: 0;
+        }
+
+        .deleted-username {
+          color: ${(p) => p.$light ? "#9ca3af" : "#6b7280"};
+          font-style: italic;
         }
 
         .username {

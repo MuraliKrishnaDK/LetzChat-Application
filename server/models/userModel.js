@@ -31,6 +31,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: "",
   },
+  deleted: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 module.exports = mongoose.model("Users", userSchema);

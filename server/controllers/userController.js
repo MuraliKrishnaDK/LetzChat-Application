@@ -59,6 +59,7 @@ module.exports.getAllUsers = async (req, res, next) => {
       "email",
       "username",
       "avatarImage",
+      "deleted",
       "_id",
     ]);
     return res.json(users);
@@ -124,28 +125,37 @@ module.exports.deleteAccount = async (req, res, next) => {
     if (!user) return res.json({ msg: "User not found", status: false });
 
     const uid = String(userId);
+
+    // Remove the user from any groups they belong to; delete groups they owned
     const ownedGroupIds = await Group.find({ createdBy: uid }).distinct("_id");
-
-    const messageFilters = [{ sender: userId }, { users: uid }];
-    if (ownedGroupIds.length) {
-      messageFilters.push({ groupId: { $in: ownedGroupIds } });
-    }
-
-    await Messages.deleteMany({ $or: messageFilters });
-
-    await Block.deleteMany({
-      $or: [{ blocker: uid }, { blocked: uid }],
-    });
-
     if (ownedGroupIds.length) {
       await Group.deleteMany({ _id: { $in: ownedGroupIds } });
     }
     await Group.updateMany({ members: uid }, { $pull: { members: uid } });
 
+    // Clear block records and reset credentials
+    await Block.deleteMany({ $or: [{ blocker: uid }, { blocked: uid }] });
     await PasswordReset.deleteMany({ email: user.email });
-    await User.deleteOne({ _id: userId });
 
+    // Soft-delete: wipe all PII but keep the document so existing DM history
+    // still has a valid sender reference.  Messages are intentionally kept.
+    await User.findByIdAndUpdate(userId, {
+      deleted: true,
+      username: "Deleted User",
+      email: "",
+      password: "",
+      phone: "",
+      avatarImage: "",
+      isAvatarImageSet: false,
+    });
+
+    // Remove from online users map
     if (global.onlineUsers) global.onlineUsers.delete(uid);
+
+    // Notify all connected clients so friends' UIs update in real-time
+    if (global.io) {
+      global.io.emit("user-deleted", { userId: uid });
+    }
 
     return res.json({ status: true, msg: "Account deleted." });
   } catch (ex) {
