@@ -20,7 +20,7 @@ export default function ProfilePanel({ activeSection = "profile", onOpenProfile,
 
   const handleLogout = async () => {
     if (!user) return;
-    const { data } = await axios.get(`${logoutRoute}/${user._id}`);
+    const { data } = await axios.get(logoutRoute(user._id));
     if (data.status === 200 || true) {
       localStorage.clear();
       navigate("/login");

@@ -32,7 +32,7 @@ export function getIceServers() {
 
 export const loginRoute = api("/api/auth/login");
 export const registerRoute = api("/api/auth/register");
-export const logoutRoute = api("/api/auth/logout");
+export const logoutRoute = (id) => api(`/api/auth/logout/${id}`);
 export const allUsersRoute = api("/api/auth/allusers");
 export const sendMessageRoute = api("/api/messages/addmsg");
 export const recieveMessageRoute = api("/api/messages/getmsg");

@@ -154,7 +154,11 @@ export default function ProfileView() {
         autoClose: 1000,
       });
 
-      setTimeout(() => navigate("/login", { replace: true }), 1200);
+      // Use a hard redirect after 1 s so it works even if the component
+      // unmounts (navigate() can silently fail on an unmounted tree).
+      setTimeout(() => {
+        window.location.replace("/login");
+      }, 1100);
     } catch {
       toast.error("Network error. Try again.", toastOptions);
       setDeleting(false);
