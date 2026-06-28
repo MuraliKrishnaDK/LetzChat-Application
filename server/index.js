@@ -35,6 +35,8 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+// Explicitly handle CORS preflight for all routes (required for DELETE/PATCH/PUT)
+app.options("*", cors(corsOptions));
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 

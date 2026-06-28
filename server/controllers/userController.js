@@ -139,15 +139,21 @@ module.exports.deleteAccount = async (req, res, next) => {
 
     // Soft-delete: wipe all PII but keep the document so existing DM history
     // still has a valid sender reference.  Messages are intentionally kept.
-    await User.findByIdAndUpdate(userId, {
-      deleted: true,
-      username: "Deleted User",
-      email: "",
-      password: "",
-      phone: "",
-      avatarImage: "",
-      isAvatarImageSet: false,
-    });
+    // Use uid-suffixed placeholders so the unique indexes on username/email
+    // are never violated when multiple accounts are deleted.
+    await User.findByIdAndUpdate(
+      userId,
+      {
+        deleted: true,
+        username: `deleted_${uid}`,
+        email: `deleted_${uid}@deleted.local`,
+        password: "",
+        phone: "",
+        avatarImage: "",
+        isAvatarImageSet: false,
+      },
+      { runValidators: false }
+    );
 
     // Remove from online users map
     if (global.onlineUsers) global.onlineUsers.delete(uid);

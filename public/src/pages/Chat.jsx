@@ -87,7 +87,12 @@ function ChatContent() {
     }));
     const uItems = contacts
       .filter((c) => !hiddenDmIds.has(String(c._id)))
-      .map((c) => ({ ...c, isGroup: false }));
+      .map((c) => ({
+        ...c,
+        isGroup: false,
+        // Always display "Deleted User" regardless of what's stored in the DB
+        username: c.deleted ? "Deleted User" : c.username,
+      }));
     return [...gItems, ...uItems].sort((a, b) =>
       a.username.localeCompare(b.username, undefined, { sensitivity: "base" })
     );
