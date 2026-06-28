@@ -23,12 +23,13 @@ export default function Login() {
       navigate("/");
       return;
     }
-    // Show confirmation toast when redirected here after account deletion
+    // Show confirmation toast once after account deletion, then clean the URL
     if (new URLSearchParams(location.search).get("deleted") === "1") {
       toast.success("Your account has been deleted successfully.", {
         ...toastOptions,
         autoClose: 3000,
       });
+      window.history.replaceState(null, "", "/login");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
