@@ -63,7 +63,8 @@ export default function Register() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (handleValidation()) {
+    if (!handleValidation()) return;
+    try {
       const { email, username, password } = values;
       const { data } = await axios.post(registerRoute, {
         username,
@@ -73,14 +74,15 @@ export default function Register() {
 
       if (data.status === false) {
         toast.error(data.msg, toastOptions);
+        return;
       }
-      if (data.status === true) {
-        localStorage.setItem(
-          process.env.REACT_APP_LOCALHOST_KEY,
-          JSON.stringify(data.user)
-        );
-        navigate("/");
-      }
+      localStorage.setItem(
+        process.env.REACT_APP_LOCALHOST_KEY,
+        JSON.stringify(data.user)
+      );
+      navigate("/");
+    } catch {
+      toast.error("Could not reach the server. Check your connection and try again.", toastOptions);
     }
   };
 

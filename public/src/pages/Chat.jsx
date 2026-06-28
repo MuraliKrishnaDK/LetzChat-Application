@@ -5,7 +5,7 @@ import { io } from "socket.io-client";
 import styled from "styled-components";
 import {
   allUsersRoute,
-  host,
+  getHost,
   lastMessagesRoute,
   createGroupRoute,
   myGroupsRoute,
@@ -236,7 +236,7 @@ function ChatContent() {
 
   useEffect(() => {
     if (!currentUser) return;
-    socket.current = io(host);
+    socket.current = io(getHost() || undefined);
     socket.current.emit("add-user", currentUser._id);
     callRef.current.attachSocket(socket.current);
 

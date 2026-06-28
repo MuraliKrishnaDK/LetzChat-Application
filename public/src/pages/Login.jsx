@@ -41,7 +41,8 @@ export default function Login() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (validateForm()) {
+    if (!validateForm()) return;
+    try {
       const { username, password } = values;
       const { data } = await axios.post(loginRoute, {
         username,
@@ -49,15 +50,15 @@ export default function Login() {
       });
       if (data.status === false) {
         toast.error(data.msg, toastOptions);
+        return;
       }
-      if (data.status === true) {
-        localStorage.setItem(
-          process.env.REACT_APP_LOCALHOST_KEY,
-          JSON.stringify(data.user)
-        );
-
-        navigate("/");
-      }
+      localStorage.setItem(
+        process.env.REACT_APP_LOCALHOST_KEY,
+        JSON.stringify(data.user)
+      );
+      navigate("/");
+    } catch {
+      toast.error("Could not reach the server. Check your connection and try again.", toastOptions);
     }
   };
 

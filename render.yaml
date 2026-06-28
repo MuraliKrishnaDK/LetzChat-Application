@@ -17,3 +17,5 @@ services:
         sync: false
       - key: SERVER_URL
         sync: false
+      - key: REACT_APP_LOCALHOST_KEY
+        value: chat-app-current-user

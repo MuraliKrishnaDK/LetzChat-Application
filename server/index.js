@@ -295,3 +295,8 @@ io.on("connection", (socket) => {
     }
   });
 });
+
+app.use((err, _req, res, _next) => {
+  console.error(err);
+  res.status(500).json({ status: false, msg: "Server error. Please try again." });
+});
