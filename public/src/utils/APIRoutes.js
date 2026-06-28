@@ -1,6 +1,8 @@
-/** API base URL — empty string in production = same-origin relative paths on Render. */
+/** API base URL resolved at build time by CRA. */
 export function getHost() {
+  // Explicit override — set REACT_APP_API_HOST in Render dashboard (build env var)
   if (process.env.REACT_APP_API_HOST) return process.env.REACT_APP_API_HOST;
+  // Same-origin relative paths work when React and API are on the same Render service
   if (process.env.NODE_ENV === "production") return "";
   return "http://localhost:5002";
 }

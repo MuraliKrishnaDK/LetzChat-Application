@@ -19,3 +19,7 @@ services:
         sync: false
       - key: REACT_APP_LOCALHOST_KEY
         value: chat-app-current-user
+      # REQUIRED: set this to your Render service URL, e.g. https://letzchat.onrender.com
+      # This is baked into the React bundle at build time so the frontend calls the correct API
+      - key: REACT_APP_API_HOST
+        sync: false
