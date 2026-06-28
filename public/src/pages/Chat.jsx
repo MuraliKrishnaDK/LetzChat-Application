@@ -681,6 +681,45 @@ function ChatContent() {
   const showGroupPanel =
     groupInfoPanelOpen && currentChat?.isGroup && !createGroupMode && activeTab === "chats";
 
+  // ── Resizable panel divider ──────────────────────────────────────────────
+  const MIN_LEFT = 220;
+  const MAX_LEFT = 480;
+  const [leftWidth, setLeftWidth] = useState(280);
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(0);
+
+  const handleDragStart = (e) => {
+    isDragging.current = true;
+    dragStartX.current = e.clientX;
+    dragStartWidth.current = leftWidth;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    e.preventDefault();
+  };
+
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!isDragging.current) return;
+      const delta = e.clientX - dragStartX.current;
+      const next = Math.min(MAX_LEFT, Math.max(MIN_LEFT, dragStartWidth.current + delta));
+      setLeftWidth(next);
+    };
+    const onUp = () => {
+      if (!isDragging.current) return;
+      isDragging.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <>
       <CallOverlay
@@ -699,7 +738,15 @@ function ChatContent() {
         onToggleVideo={call.toggleVideo}
       />
       <Container $light={isLight}>
-        <div className={`container${showGroupPanel ? " with-group-panel" : ""}`}>
+        <div
+          className={`container${showGroupPanel ? " with-group-panel" : ""}`}
+          style={{
+            gridTemplateColumns: showGroupPanel
+              ? `65px ${leftWidth}px 6px auto 280px`
+              : `65px ${leftWidth}px 6px auto`,
+          }}
+        >
+          {/* ── Col 1: Nav ── */}
           <NavSidebar
             currentUserImage={currentUser?.avatarImage}
             activeTab={activeTab}
@@ -707,109 +754,112 @@ function ChatContent() {
             msgBadge={activeTab !== "chats" ? Object.values(unreadCounts).reduce((a, b) => a + b, 0) : 0}
             statusBadge={activeTab !== "status" ? statusUnreadCount : 0}
           />
+
+          {/* ── Col 2: Left panel ── */}
           {activeTab === "status" ? (
-            <>
-              <StatusPage currentUser={currentUser} contacts={contacts} onUnreadCountChange={setStatusUnreadCount} />
-              <BlankPane />
-            </>
+            <StatusPage currentUser={currentUser} contacts={contacts} onUnreadCountChange={setStatusUnreadCount} />
           ) : activeTab === "profile" ? (
-            <>
-              <ProfilePanel
-                activeSection={profileSection}
-                onOpenProfile={() => setProfileSection("profile")}
-                onOpenChatsSettings={() => setProfileSection("chats")}
-              />
-              {profileSection === "profile" ? <ProfileView /> : <ChatsSettingsView />}
-            </>
+            <ProfilePanel
+              activeSection={profileSection}
+              onOpenProfile={() => setProfileSection("profile")}
+              onOpenChatsSettings={() => setProfileSection("chats")}
+            />
           ) : (
-            <>
-              <Contacts
-                chatItems={sortedChatItems}
-                userContacts={contacts}
-                changeChat={handleChatChange}
-                selectedChatId={currentChat?._id}
-                unreadCounts={unreadCounts}
-                lastMessages={lastMessages}
-                createGroupMode={createGroupMode}
-                groupSelectedIds={groupCreateSelection.map((c) => c._id)}
-                onAddToGroupCreate={onAddToGroupCreate}
-                onEnterCreateGroupMode={onEnterCreateGroupMode}
-                pinnedChatIds={pinnedChatIds}
-                onTogglePinChat={togglePinChat}
-                blockedUserIds={Array.from(blockedUserIds)}
-                onChatMenuBlock={handleChatMenuBlock}
-                onChatMenuClear={handleChatMenuClear}
-                onChatMenuDelete={handleChatMenuDelete}
-                onChatColumnEmptyClick={handleChatColumnEmptyClick}
+            <Contacts
+              chatItems={sortedChatItems}
+              userContacts={contacts}
+              changeChat={handleChatChange}
+              selectedChatId={currentChat?._id}
+              unreadCounts={unreadCounts}
+              lastMessages={lastMessages}
+              createGroupMode={createGroupMode}
+              groupSelectedIds={groupCreateSelection.map((c) => c._id)}
+              onAddToGroupCreate={onAddToGroupCreate}
+              onEnterCreateGroupMode={onEnterCreateGroupMode}
+              pinnedChatIds={pinnedChatIds}
+              onTogglePinChat={togglePinChat}
+              blockedUserIds={Array.from(blockedUserIds)}
+              onChatMenuBlock={handleChatMenuBlock}
+              onChatMenuClear={handleChatMenuClear}
+              onChatMenuDelete={handleChatMenuDelete}
+              onChatColumnEmptyClick={handleChatColumnEmptyClick}
+            />
+          )}
+
+          {/* ── Col 3: Resize handle ── */}
+          <DragHandle $light={isLight} onMouseDown={handleDragStart} />
+
+          {/* ── Col 4: Right content ── */}
+          {activeTab === "status" ? (
+            <BlankPane />
+          ) : activeTab === "profile" ? (
+            profileSection === "profile" ? <ProfileView /> : <ChatsSettingsView />
+          ) : createGroupMode ? (
+            <GroupCreateStaging
+              selected={groupCreateSelection}
+              groupName={newGroupName}
+              onGroupNameChange={setNewGroupName}
+              onRemoveMember={onRemoveFromGroupCreate}
+              onCreate={handleCreateGroupConfirm}
+              onCancel={() => {
+                setCreateGroupMode(false);
+                setGroupCreateSelection([]);
+                setNewGroupName("");
+              }}
+              canCreate={groupCreateSelection.length > 1}
+              creating={groupCreateLoading}
+            />
+          ) : currentChat === undefined ? (
+            <Welcome />
+          ) : (
+            <ChatPane>
+              <ChatContainer
+                currentChat={currentChat}
+                socket={socket}
+                arrivalMsg={arrivalMsg}
+                initialUnreadCount={currentChatUnread}
+                chatRefreshKey={chatRefreshNonce}
+                blockRefreshKey={blockRefreshNonce}
+                onMessageSent={(preview) => handleMessageSent(currentChat._id, preview)}
+                contacts={contacts}
+                onDeleteChat={() => {
+                  if (currentChat && !currentChat.isGroup) {
+                    applyDmDeleteSideEffects(currentChat._id);
+                  }
+                  setCurrentChat(undefined);
+                  setChatRefreshNonce((n) => n + 1);
+                }}
+                onRequestAddMembers={() => {
+                  setGroupInfoPanelOpen(true);
+                  setGroupPanelRequestAddMembers(true);
+                }}
+                onToggleGroupInfoPanel={
+                  currentChat.isGroup ? () => setGroupInfoPanelOpen((v) => !v) : undefined
+                }
+                onBlockStatusChange={handleBlockStatusChange}
+                onStartVoiceCall={call.startVoiceCall}
+                onStartVideoCall={call.startVideoCall}
+                callDisabled={call.inCall}
               />
-              {createGroupMode ? (
-                <GroupCreateStaging
-                  selected={groupCreateSelection}
-                  groupName={newGroupName}
-                  onGroupNameChange={setNewGroupName}
-                  onRemoveMember={onRemoveFromGroupCreate}
-                  onCreate={handleCreateGroupConfirm}
-                  onCancel={() => {
-                    setCreateGroupMode(false);
-                    setGroupCreateSelection([]);
-                    setNewGroupName("");
-                  }}
-                  canCreate={groupCreateSelection.length > 1}
-                  creating={groupCreateLoading}
-                />
-              ) : currentChat === undefined ? (
-                <Welcome />
-              ) : (
-                <>
-                  <ChatPane>
-                    <ChatContainer
-                      currentChat={currentChat}
-                      socket={socket}
-                      arrivalMsg={arrivalMsg}
-                      initialUnreadCount={currentChatUnread}
-                      chatRefreshKey={chatRefreshNonce}
-                      blockRefreshKey={blockRefreshNonce}
-                      onMessageSent={(preview) => handleMessageSent(currentChat._id, preview)}
-                      contacts={contacts}
-                      onDeleteChat={() => {
-                        if (currentChat && !currentChat.isGroup) {
-                          applyDmDeleteSideEffects(currentChat._id);
-                        }
-                        setCurrentChat(undefined);
-                        setChatRefreshNonce((n) => n + 1);
-                      }}
-                      onRequestAddMembers={() => {
-                        setGroupInfoPanelOpen(true);
-                        setGroupPanelRequestAddMembers(true);
-                      }}
-                      onToggleGroupInfoPanel={
-                        currentChat.isGroup ? () => setGroupInfoPanelOpen((v) => !v) : undefined
-                      }
-                      onBlockStatusChange={handleBlockStatusChange}
-                      onStartVoiceCall={call.startVoiceCall}
-                      onStartVideoCall={call.startVideoCall}
-                      callDisabled={call.inCall}
-                    />
-                  </ChatPane>
-                  {showGroupPanel && currentUser && (
-                    <GroupInfoSidePanel
-                      currentChat={currentChat}
-                      currentUserId={currentUser._id}
-                      allContacts={contacts}
-                      onSubmitAddMembers={handleSubmitAddMembersFromPanel}
-                      addMembersSubmitting={addMembersLoading}
-                      requestOpenAddMembers={groupPanelRequestAddMembers}
-                      onConsumedRequestAddMembers={consumeGroupPanelAddMembersRequest}
-                      onClosePanel={() => {
-                        setGroupInfoPanelOpen(false);
-                        setGroupPanelRequestAddMembers(false);
-                      }}
-                      onGroupProfileUpdated={handleGroupProfileUpdated}
-                    />
-                  )}
-                </>
-              )}
-            </>
+            </ChatPane>
+          )}
+
+          {/* ── Col 5: Group info panel (conditional) ── */}
+          {showGroupPanel && currentUser && (
+            <GroupInfoSidePanel
+              currentChat={currentChat}
+              currentUserId={currentUser._id}
+              allContacts={contacts}
+              onSubmitAddMembers={handleSubmitAddMembersFromPanel}
+              addMembersSubmitting={addMembersLoading}
+              requestOpenAddMembers={groupPanelRequestAddMembers}
+              onConsumedRequestAddMembers={consumeGroupPanelAddMembersRequest}
+              onClosePanel={() => {
+                setGroupInfoPanelOpen(false);
+                setGroupPanelRequestAddMembers(false);
+              }}
+              onGroupProfileUpdated={handleGroupProfileUpdated}
+            />
           )}
         </div>
       </Container>
@@ -830,6 +880,38 @@ const BlankPaneEl = styled.div`
   height: 100%;
 `;
 
+const DragHandle = styled.div`
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  background: ${(p) => (p.$light ? "#d1d5db" : "#ffffff0d")};
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  z-index: 10;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    height: 40px;
+    border-radius: 2px;
+    background: transparent;
+    transition: background 0.15s;
+  }
+
+  &:hover,
+  &:active {
+    background: ${(p) => (p.$light ? "#9ca3af" : "#6b728066")};
+    &::after {
+      background: ${(p) => (p.$light ? "#6b7280" : "#9ca3af")};
+    }
+  }
+`;
+
 const Container = styled.div`
   height: 100vh;
   width: 100vw;
@@ -841,16 +923,10 @@ const Container = styled.div`
     width: 100vw;
     background-color: ${(p) => (p.$light ? "rgba(255,255,255,0.55)" : "#00000076")};
     display: grid;
-    grid-template-columns: 65px 1fr 3fr;
-    @media screen and (min-width: 720px) and (max-width: 1080px) {
-      grid-template-columns: 65px 35% 1fr;
-    }
+    /* grid-template-columns driven by inline style from leftWidth state */
   }
   .container.with-group-panel {
-    grid-template-columns: 65px 1fr 2fr 1fr;
-    @media screen and (min-width: 720px) and (max-width: 1080px) {
-      grid-template-columns: 65px 1fr 1.5fr 1fr;
-    }
+    /* grid-template-columns driven by inline style */
   }
 `;
 
