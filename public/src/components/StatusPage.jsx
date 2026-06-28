@@ -16,7 +16,7 @@ function relativeTime(iso) {
   return h < 24 ? `${h}h ago` : "1d ago";
 }
 
-export default function StatusPage({ currentUser, contacts = [] }) {
+export default function StatusPage({ currentUser, contacts = [], onUnreadCountChange }) {
   const { themeMode } = useChatAppearance();
   const isLight = themeMode === "light";
 
@@ -83,6 +83,19 @@ export default function StatusPage({ currentUser, contacts = [] }) {
     });
   };
 
+  const handleViewed = (statusId, viewerId) => {
+    setGroups((prev) =>
+      prev.map((g) => ({
+        ...g,
+        statuses: g.statuses.map((s) =>
+          s._id === statusId && !s.viewers?.some((v) => String(v.userId) === viewerId)
+            ? { ...s, viewers: [...(s.viewers || []), { userId: viewerId, viewedAt: new Date().toISOString() }] }
+            : s
+        ),
+      }))
+    );
+  };
+
   const handleDeleted = (deletedId) => {
     setGroups((prev) =>
       prev
@@ -103,6 +116,16 @@ export default function StatusPage({ currentUser, contacts = [] }) {
     group.statuses.some(
       (s) => !s.viewers?.some((v) => String(v.userId) === String(currentUser?._id))
     );
+
+  // Report unread count upward whenever groups change
+  useEffect(() => {
+    if (!onUnreadCountChange || !currentUser) return;
+    const count = groups.filter(
+      (g) => String(g.user._id) !== String(currentUser._id) && hasUnread(g)
+    ).length;
+    onUnreadCountChange(count);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups, currentUser]);
 
   return (
     <Container $light={isLight}>
@@ -207,6 +230,7 @@ export default function StatusPage({ currentUser, contacts = [] }) {
           currentUser={currentUser}
           onClose={() => setViewerOpen(false)}
           onDeleted={handleDeleted}
+          onViewed={handleViewed}
         />
       )}
     </Container>

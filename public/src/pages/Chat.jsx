@@ -55,6 +55,7 @@ function ChatContent() {
   const [profileSection, setProfileSection] = useState("profile");
 
   const [unreadCounts, setUnreadCounts] = useState({});
+  const [statusUnreadCount, setStatusUnreadCount] = useState(0);
   const [currentChatUnread, setCurrentChatUnread] = useState(0);
   const [arrivalMsg, setArrivalMsg] = useState(null);
   const [lastMessages, setLastMessages] = useState({});
@@ -670,10 +671,12 @@ function ChatContent() {
             currentUserImage={currentUser?.avatarImage}
             activeTab={activeTab}
             onTabChange={setActiveTab}
+            msgBadge={activeTab !== "chats" ? Object.values(unreadCounts).reduce((a, b) => a + b, 0) : 0}
+            statusBadge={activeTab !== "status" ? statusUnreadCount : 0}
           />
           {activeTab === "status" ? (
             <>
-              <StatusPage currentUser={currentUser} contacts={contacts} />
+              <StatusPage currentUser={currentUser} contacts={contacts} onUnreadCountChange={setStatusUnreadCount} />
               <BlankPane />
             </>
           ) : activeTab === "profile" ? (

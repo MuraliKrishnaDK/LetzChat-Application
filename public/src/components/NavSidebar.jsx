@@ -4,28 +4,44 @@ import { useChatAppearance } from "../context/ChatAppearanceContext";
 import { IoChatbubblesOutline } from "react-icons/io5";
 import { IoSyncCircleOutline } from "react-icons/io5";
 
-export default function NavSidebar({ currentUserImage, activeTab = "chats", onTabChange }) {
+export default function NavSidebar({
+  currentUserImage,
+  activeTab = "chats",
+  onTabChange,
+  msgBadge = 0,
+  statusBadge = 0,
+}) {
   const { themeMode } = useChatAppearance();
   return (
     <Sidebar $light={themeMode === "light"}>
       <div className="nav-top">
-        <NavBtn
-          $light={themeMode === "light"}
-          className={activeTab === "chats" ? "active" : ""}
-          title="Chats"
-          onClick={() => onTabChange && onTabChange("chats")}
-        >
-          <IoChatbubblesOutline />
-        </NavBtn>
+        <BtnWrap>
+          <NavBtn
+            $light={themeMode === "light"}
+            className={activeTab === "chats" ? "active" : ""}
+            title="Chats"
+            onClick={() => onTabChange && onTabChange("chats")}
+          >
+            <IoChatbubblesOutline />
+          </NavBtn>
+          {msgBadge > 0 && (
+            <Badge>{msgBadge > 99 ? "99+" : msgBadge}</Badge>
+          )}
+        </BtnWrap>
 
-        <NavBtn
-          $light={themeMode === "light"}
-          className={activeTab === "status" ? "active" : ""}
-          title="Status"
-          onClick={() => onTabChange && onTabChange("status")}
-        >
-          <IoSyncCircleOutline />
-        </NavBtn>
+        <BtnWrap>
+          <NavBtn
+            $light={themeMode === "light"}
+            className={activeTab === "status" ? "active" : ""}
+            title="Status"
+            onClick={() => onTabChange && onTabChange("status")}
+          >
+            <IoSyncCircleOutline />
+          </NavBtn>
+          {statusBadge > 0 && (
+            <Badge $green>{statusBadge > 99 ? "99+" : statusBadge}</Badge>
+          )}
+        </BtnWrap>
       </div>
 
       <div className="nav-bottom">
@@ -99,6 +115,14 @@ const Sidebar = styled.nav`
   }
 `;
 
+const BtnWrap = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+`;
+
 const NavBtn = styled.button`
   background: transparent;
   border: none;
@@ -122,4 +146,23 @@ const NavBtn = styled.button`
     background: #6b728022;
     color: #6b7280;
   }
+`;
+
+const Badge = styled.span`
+  position: absolute;
+  top: 0;
+  right: 8px;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 9999px;
+  background: ${(p) => (p.$green ? "#22c55e" : "#ef4444")};
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.25rem;
+  pointer-events: none;
+  line-height: 1;
 `;

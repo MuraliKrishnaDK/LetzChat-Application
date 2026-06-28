@@ -11,7 +11,7 @@ import { viewStatusRoute, deleteStatusRoute } from "../utils/APIRoutes";
 const PHOTO_DURATION = 5000;
 const TEXT_DURATION = 6000;
 
-export default function StatusViewer({ groups, initialGroupIdx = 0, currentUser, onClose, onDeleted }) {
+export default function StatusViewer({ groups, initialGroupIdx = 0, currentUser, onClose, onDeleted, onViewed }) {
   const [groupIdx, setGroupIdx] = useState(initialGroupIdx);
   const [statusIdx, setStatusIdx] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -36,7 +36,9 @@ export default function StatusViewer({ groups, initialGroupIdx = 0, currentUser,
       statusId: status._id,
       viewerId: currentUser._id,
     }).catch(() => {});
-  }, [status, isOwn, currentUser._id]);
+    if (onViewed) onViewed(status._id, String(currentUser._id));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status?._id, isOwn]);
 
   // Progress timer
   const startTimer = useCallback((from = 0) => {
