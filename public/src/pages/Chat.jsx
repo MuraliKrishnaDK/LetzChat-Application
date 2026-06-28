@@ -16,6 +16,8 @@ import {
   deleteChatRoute,
   leaveGroupRoute,
   getStatusesRoute,
+  unreadCountsRoute,
+  markChatReadRoute,
 } from "../utils/APIRoutes";
 import ChatContainer from "../components/ChatContainer";
 import Contacts from "../components/Contacts";
@@ -220,6 +222,36 @@ function ChatContent() {
     };
   }, [currentUser, contacts]);
 
+  // Seed unread message counts from server (persists across page refreshes)
+  useEffect(() => {
+    if (!currentUser) return;
+    const allChats = [
+      ...contacts.map((c) => ({ id: c._id, isGroup: false })),
+      ...groups.map((g) => ({ id: g._id, isGroup: true })),
+    ];
+    if (!allChats.length) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await axios.post(unreadCountsRoute, {
+          userId: currentUser._id,
+          chatIds: allChats,
+        });
+        if (cancelled) return;
+        setUnreadCounts((prev) => {
+          const merged = { ...prev };
+          Object.entries(data).forEach(([chatId, count]) => {
+            // Only set if socket hasn't already bumped it higher
+            if ((prev[chatId] || 0) < count) merged[chatId] = count;
+          });
+          return merged;
+        });
+      } catch { /* non-critical */ }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, contacts, groups]);
+
   // Background status-unread count — runs on load and whenever contacts change
   useEffect(() => {
     if (!currentUser || contacts.length === 0) return;
@@ -411,6 +443,13 @@ function ChatContent() {
     setUnreadCounts((prev) => ({ ...prev, [chat._id]: 0 }));
     setCurrentChat(chat);
     setArrivalMsg(null);
+    // Persist read state so badge resets after page refresh too
+    if (currentUser) {
+      axios.post(markChatReadRoute, {
+        userId: currentUser._id,
+        chatId: chat._id,
+      }).catch(() => {});
+    }
   };
 
   const onEnterCreateGroupMode = () => {

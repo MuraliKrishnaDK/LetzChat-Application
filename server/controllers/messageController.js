@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Messages = require("../models/messageModel");
 const Block = require("../models/blockModel");
 const Group = require("../models/groupModel");
+const LastRead = require("../models/lastReadModel");
 
 /** True if `recipientId` is blocking `senderId` (recipient should not see this incoming DM). */
 const recipientBlocksSender = async (recipientId, senderId) => {
@@ -445,6 +446,78 @@ module.exports.getGroupSharedContent = async (req, res, next) => {
     links.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     res.json({ media, docs, links });
+  } catch (ex) {
+    next(ex);
+  }
+};
+
+/**
+ * POST /api/messages/unread-counts
+ * Body: { userId, chatIds: [{id, isGroup}] }
+ * Returns: { [chatId]: count }
+ */
+module.exports.getUnreadCounts = async (req, res, next) => {
+  try {
+    const { userId, chatIds = [] } = req.body;
+    if (!userId || !chatIds.length) return res.json({});
+
+    const readRecords = await LastRead.find({
+      userId: String(userId),
+      chatId: { $in: chatIds.map((c) => String(c.id)) },
+    }).lean();
+
+    const readMap = {};
+    readRecords.forEach((r) => { readMap[r.chatId] = r.lastReadAt; });
+
+    const results = await Promise.all(
+      chatIds.map(async ({ id, isGroup }) => {
+        const chatId = String(id);
+        const since = readMap[chatId] || new Date(0);
+        let count;
+        if (isGroup) {
+          count = await Messages.countDocuments({
+            groupId: new mongoose.Types.ObjectId(chatId),
+            sender: { $ne: new mongoose.Types.ObjectId(String(userId)) },
+            createdAt: { $gt: since },
+            deleted: false,
+            clearedFor: { $ne: String(userId) },
+          });
+        } else {
+          count = await Messages.countDocuments({
+            users: { $all: [String(userId), String(chatId)] },
+            groupId: null,
+            sender: { $ne: new mongoose.Types.ObjectId(String(userId)) },
+            createdAt: { $gt: since },
+            deleted: false,
+            clearedFor: { $ne: String(userId) },
+            $nor: [{ hiddenForRecipients: String(userId) }],
+          });
+        }
+        return [chatId, count];
+      })
+    );
+
+    const counts = {};
+    results.forEach(([chatId, count]) => { if (count > 0) counts[chatId] = count; });
+    return res.json(counts);
+  } catch (ex) {
+    next(ex);
+  }
+};
+
+/**
+ * POST /api/messages/mark-read
+ * Body: { userId, chatId }
+ */
+module.exports.markChatRead = async (req, res, next) => {
+  try {
+    const { userId, chatId } = req.body;
+    await LastRead.findOneAndUpdate(
+      { userId: String(userId), chatId: String(chatId) },
+      { lastReadAt: new Date() },
+      { upsert: true }
+    );
+    return res.json({ status: true });
   } catch (ex) {
     next(ex);
   }

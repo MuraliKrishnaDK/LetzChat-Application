@@ -4,6 +4,7 @@ const {
   forwardMessage, getLastMessages, searchMessages,
   clearChat, deleteChat, toggleBlock, checkBlock,
   getGroupSharedContent,
+  getUnreadCounts, markChatRead,
 } = require("../controllers/messageController");
 const router = require("express").Router();
 const multer = require("multer");
@@ -47,5 +48,7 @@ router.post("/clearchat/",       clearChat);
 router.post("/deletechat/",      deleteChat);
 router.post("/block/",           toggleBlock);
 router.post("/checkblock/",      checkBlock);
+router.post("/unread-counts/",   getUnreadCounts);
+router.post("/mark-read/",       markChatRead);
 
 module.exports = router;

@@ -59,7 +59,9 @@ export const createGroupRoute    = api("/api/groups/create");
 export const myGroupsRoute       = (userId) => api(`/api/groups/my/${userId}`);
 export const addGroupMembersRoute = (groupId) => api(`/api/groups/${groupId}/members`);
 export const updateGroupProfileRoute = (groupId) => api(`/api/groups/${groupId}/profile`);
-export const leaveGroupRoute = (groupId) => api(`/api/groups/${groupId}/leave`);
+export const leaveGroupRoute      = (groupId) => api(`/api/groups/${groupId}/leave`);
+export const unreadCountsRoute    = api("/api/messages/unread-counts/");
+export const markChatReadRoute    = api("/api/messages/mark-read/");
 
 export const getStatusesRoute      = api("/api/status");
 export const postTextStatusRoute   = api("/api/status/text");
