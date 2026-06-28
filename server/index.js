@@ -6,6 +6,7 @@ const fs = require("fs");
 const authRoutes = require("./routes/auth");
 const messageRoutes = require("./routes/messages");
 const groupRoutes = require("./routes/groups");
+const statusRoutes = require("./routes/status");
 const Block = require("./models/blockModel");
 const app = express();
 const socket = require("socket.io");
@@ -56,6 +57,7 @@ app.get("/ping", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/groups", groupRoutes);
+app.use("/api/status", statusRoutes);
 
 // Serve React production build (Render monolith deploy)
 const clientBuild = path.join(__dirname, "../public/build");

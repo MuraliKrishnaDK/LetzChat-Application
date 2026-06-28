@@ -673,7 +673,7 @@ function ChatContent() {
           />
           {activeTab === "status" ? (
             <>
-              <StatusPage />
+              <StatusPage currentUser={currentUser} contacts={contacts} />
               <BlankPane />
             </>
           ) : activeTab === "profile" ? (
