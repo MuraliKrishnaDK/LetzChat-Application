@@ -790,8 +790,8 @@ function ChatContent() {
             currentUserImage={currentUser?.avatarImage}
             activeTab={activeTab}
             onTabChange={setActiveTab}
-            msgBadge={activeTab !== "chats" ? Object.values(unreadCounts).reduce((a, b) => a + b, 0) : 0}
-            statusBadge={activeTab !== "status" ? statusUnreadCount : 0}
+            msgBadge={Object.values(unreadCounts).reduce((a, b) => a + b, 0)}
+            statusBadge={statusUnreadCount}
           />
 
           {/* ── Col 2: Left panel ── */}
