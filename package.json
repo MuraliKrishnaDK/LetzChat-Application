@@ -2,7 +2,7 @@
   "name": "letzchat",
   "private": true,
   "scripts": {
-    "build": "npm install --prefix public && npm run build --prefix public && npm install --prefix server",
+    "build": "npm install --prefix public && NODE_ENV=production npm run build --prefix public && npm install --prefix server",
     "start": "npm start --prefix server",
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm start --prefix public"
