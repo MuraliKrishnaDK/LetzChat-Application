@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import ReactDOM from "react-dom";
 import styled from "styled-components";
 import axios from "axios";
 import { IoClose, IoSend, IoCamera, IoVideocam, IoText, IoAttach, IoSwapHorizontal } from "react-icons/io5";
@@ -206,7 +207,7 @@ export default function StatusComposer({ currentUser, isLight, onClose, onPosted
 
   const fmt = (s) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
-  return (
+  return ReactDOM.createPortal(
     <Overlay>
       <Modal $light={isLight}>
         {/* Header */}
@@ -368,7 +369,8 @@ export default function StatusComposer({ currentUser, isLight, onClose, onPosted
           </PostBtn>
         </Footer>
       </Modal>
-    </Overlay>
+    </Overlay>,
+    document.body
   );
 }
 

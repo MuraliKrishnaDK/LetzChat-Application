@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import styled, { keyframes } from "styled-components";
+import ReactDOM from "react-dom";
+import styled from "styled-components";
 import axios from "axios";
 import {
   IoClose, IoChevronBack, IoChevronForward, IoTrashOutline,
@@ -9,7 +10,6 @@ import { viewStatusRoute, deleteStatusRoute } from "../utils/APIRoutes";
 
 const PHOTO_DURATION = 5000;
 const TEXT_DURATION = 6000;
-const VIDEO_MAX_DURATION = 30000;
 
 export default function StatusViewer({ groups, initialGroupIdx = 0, currentUser, onClose, onDeleted }) {
   const [groupIdx, setGroupIdx] = useState(initialGroupIdx);
@@ -120,7 +120,7 @@ export default function StatusViewer({ groups, initialGroupIdx = 0, currentUser,
 
   if (!group || !status) return null;
 
-  return (
+  return ReactDOM.createPortal(
     <Overlay
       onMouseDown={() => setPaused(true)}
       onMouseUp={() => setPaused(false)}
@@ -222,7 +222,8 @@ export default function StatusViewer({ groups, initialGroupIdx = 0, currentUser,
           )}
         </ViewersList>
       )}
-    </Overlay>
+    </Overlay>,
+    document.body
   );
 }
 
