@@ -15,6 +15,7 @@ import {
   clearChatRoute,
   deleteChatRoute,
   leaveGroupRoute,
+  getStatusesRoute,
 } from "../utils/APIRoutes";
 import ChatContainer from "../components/ChatContainer";
 import Contacts from "../components/Contacts";
@@ -217,6 +218,38 @@ function ChatContent() {
     return () => {
       cancelled = true;
     };
+  }, [currentUser, contacts]);
+
+  // Background status-unread count — runs on load and whenever contacts change
+  useEffect(() => {
+    if (!currentUser || contacts.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await axios.post(getStatusesRoute, {
+          userId: currentUser._id,
+          contactIds: contacts.map((c) => c._id),
+        });
+        if (cancelled) return;
+        const myId = String(currentUser._id);
+        const grouped = new Map();
+        data.forEach((s) => {
+          const uid = String(s.userId._id || s.userId);
+          if (uid === myId) return;
+          if (!grouped.has(uid)) grouped.set(uid, []);
+          grouped.get(uid).push(s);
+        });
+        let count = 0;
+        grouped.forEach((statuses) => {
+          const unseen = statuses.some(
+            (s) => !s.viewers?.some((v) => String(v.userId) === myId)
+          );
+          if (unseen) count++;
+        });
+        setStatusUnreadCount(count);
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
   }, [currentUser, contacts]);
 
   useEffect(() => {
