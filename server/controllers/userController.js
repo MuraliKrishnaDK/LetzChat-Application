@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const dns = require("dns").promises;
 const User = require("../models/userModel");
 const Messages = require("../models/messageModel");
 const Block = require("../models/blockModel");
@@ -8,6 +9,21 @@ const bcrypt = require("bcrypt");
 const { sendResetCodeEmail } = require("../utils/emailService");
 
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/** Returns true if the email's domain has at least one MX record. */
+async function hasMxRecord(email) {
+  try {
+    const domain = email.split("@")[1];
+    if (!domain) return false;
+    const records = await dns.resolveMx(domain);
+    return Array.isArray(records) && records.length > 0;
+  } catch {
+    // NXDOMAIN or DNS timeout — treat as invalid
+    return false;
+  }
+}
 
 const escapeRegex = (value) =>
   String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -33,6 +49,18 @@ module.exports.register = async (req, res, next) => {
   try {
     const { username, email, password } = req.body;
     const normalizedEmail = normalizeEmail(email);
+
+    // Basic format check
+    if (!EMAIL_RE.test(normalizedEmail)) {
+      return res.json({ msg: "Please enter a valid email address.", status: false });
+    }
+
+    // DNS MX-record check — rejects addresses whose domain doesn't exist
+    const mxOk = await hasMxRecord(normalizedEmail);
+    if (!mxOk) {
+      return res.json({ msg: "Email domain does not exist. Please use a real email address.", status: false });
+    }
+
     const usernameCheck = await User.findOne({ username });
     if (usernameCheck)
       return res.json({ msg: "Username already used", status: false });
