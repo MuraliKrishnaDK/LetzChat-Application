@@ -117,15 +117,17 @@ export default function StatusPage({ currentUser, contacts = [], onUnreadCountCh
       (s) => !s.viewers?.some((v) => String(v.userId) === String(currentUser?._id))
     );
 
-  // Report unread count upward whenever groups change
+  // Report unread count upward only after real data has loaded.
+  // Skipping while loading=true prevents the initial empty-groups render
+  // from calling onUnreadCountChange(0) and wiping the badge prematurely.
   useEffect(() => {
-    if (!onUnreadCountChange || !currentUser) return;
+    if (!onUnreadCountChange || !currentUser || loading) return;
     const count = groups.filter(
       (g) => String(g.user._id) !== String(currentUser._id) && hasUnread(g)
     ).length;
     onUnreadCountChange(count);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groups, currentUser]);
+  }, [groups, currentUser, loading]);
 
   return (
     <Container $light={isLight}>
